@@ -7,7 +7,7 @@
 
 This project implements and compares five path planning algorithms for a TurtleBot3 Waffle robot in Gazebo simulation, culminating in a novel hybrid algorithm — **WA\*-Bi-RRT\*** — that combines Weighted A\* guidance with Bidirectional RRT\* to achieve fast, high-quality path planning in dynamic environments with moving obstacles.
 
-**Core innovation:** Instead of sampling randomly like standard RRT, our algorithm uses the Weighted A\* solution path as a corridor to bias RRT sampling — making tree growth faster and smarter. On top of this, an obstacle projection bias steers sampling away from predicted obstacle positions in real time.
+**Core innovation:** Instead of sampling randomly like standard RRT, our algorithm uses the Weighted A\* solution path as a corridor to bias RRT sampling — making tree growth faster and smarter. On top of this, an obstacle projection bias steers sampling away from predicted obstacle positions in real time. The corridor width adapts dynamically based on planning progress, widening early to explore and narrowing as the tree approaches the goal.
 
 **Base paper:** [Bi-AM-RRT*: A Fast and Efficient Sampling-Based Motion Planning Algorithm in Dynamic Environments](https://arxiv.org/abs/2301.11816) — Zhang et al., IEEE Transactions on Intelligent Vehicles, 2023
 
@@ -23,15 +23,18 @@ This project implements and compares five path planning algorithms for a TurtleB
 | Bi-RRT* | Medium | Good | ✅ | Baseline 4 |
 | **WA\*-Bi-RRT\*** | **Fast** | **Good** | **✅** | **⭐ Our contribution** |
 
+**Paper argument:**
+> A\* and Weighted A\* are optimal/fast but fail in dynamic environments. Standard RRT handles dynamics but samples blindly. Our WA\*-Bi-RRT\* uses Weighted A\* to guide RRT sampling through an adaptive corridor toward the goal, achieving faster convergence while maintaining dynamic obstacle avoidance.
+
 ---
 
-## 👥 Team
+## 👥 Team & Work Division
 
-| Person | Role |
-|---|---|
-| [Your Name] | Bi-RRT* Core + ROS2 Integration |
-| [Person 2 Name] | A\* + Weighted A\* + Replanning + Map + Gazebo |
-| [Person 3 Name] | WA\*-Guided Sampling + Smoothing + Visualization + Metrics |
+| Person | Role | Load |
+|---|---|---|
+| [Your Name] | Bi-RRT* Core + ROS2 + Gazebo Integration | ~40% |
+| [Person 2 Name] | A\* + Weighted A\* + Replanning + Maps + Gazebo Worlds | ~30% |
+| [Person 3 Name] | Sampling + Originality + Smoothing + Visualization + Metrics | ~30% |
 
 ---
 
@@ -40,25 +43,25 @@ This project implements and compares five path planning algorithms for a TurtleB
 ```
 ├── algorithms/
 │   ├── rrt.py                  # Vanilla RRT (Person 1)
-│   ├── birrt_star.py           # Bi-RRT* core (Person 1)
+│   ├── birrt_star.py           # Bi-RRT* core + rewiring (Person 1)
 │   ├── astar.py                # A* on grid map (Person 2)
 │   ├── weighted_astar.py       # Weighted A* (Person 2)
 │   ├── path_checker.py         # is_path_blocked() (Person 2)
 │   ├── replanner.py            # replan() (Person 2)
-│   ├── sampler.py              # WA*-guided sampling (Person 3)
+│   ├── sampler.py              # WA*-guided adaptive sampling (Person 3)
 │   └── smoother.py             # smooth_path() (Person 3)
 ├── ros2/
-│   └── rrt_node.py             # ROS2 node (Person 1)
+│   ├── rrt_node.py             # ROS2 planner node (Person 1)
+│   └── obstacle_publisher.py   # Moving obstacle ROS2 publisher (Person 1)
 ├── gazebo/
 │   ├── worlds/                 # Gazebo world files (Person 2)
 │   ├── maps/                   # Grid map numpy arrays (Person 2)
-│   ├── moving_obstacles.py     # Moving obstacle publisher (Person 2)
-│   └── launch/                 # Launch files (Person 2)
+│   └── launch/                 # Launch files (Person 1)
 ├── visualization/
-│   └── rviz_publisher.py       # RViz display (Person 3)
+│   └── rviz_publisher.py       # RViz display node (Person 3)
 ├── metrics/
-│   └── logger.py               # Metrics logger (Person 3)
-├── mock_data.py                # Shared mock data
+│   └── logger.py               # Metrics logger + plots (Person 3)
+├── mock_data.py                # Shared mock data — read before coding
 └── README.md
 ```
 
@@ -85,7 +88,7 @@ obstacle = (x, y, radius, vx, vy)  # vx, vy = velocity (meters/step)
 # Path — ordered list of positions from start to goal
 path = [(x, y), (x, y), ...]
 
-# WA* corridor — output of Weighted A* in meters (not grid cells)
+# WA* corridor — output of Weighted A* converted to meters
 wa_path = [(x, y), (x, y), ...]
 
 # Grid — used internally by A* and Weighted A* only
@@ -94,23 +97,47 @@ grid = [[0, 1, 0, ...], ...]   # 0 = free, 1 = obstacle
 
 > ⚠️ **Coordinate rule:** Everything in RRT lives in continuous (x, y) meters.
 > A\* works on grid cells internally but must output (x, y) meters.
-> Person 2 provides the `cell_to_xy()` conversion function.
+> Person 2 provides `cell_to_xy()` conversion.
 
 ---
 
 ## 🔌 Function Signatures — Do NOT Change These
 
 ```python
-# Person 2
-def astar(grid, start_cell, goal_cell, cell_size=0.5): ...
-def weighted_astar(grid, start_cell, goal_cell, epsilon=1.5, cell_size=0.5): ...
-def is_path_blocked(path, obstacles): ...
-def replan(tree, blocked_segment, obstacles): ...
-def cell_to_xy(cell, cell_size=0.5): ...
+# ── Person 2 ─────────────────────────────────────────────────
 
-# Person 3
-def sample_state(tree, goal, obstacles, wa_path, map_size, corridor_width=1.0): ...
-def smooth_path(path, obstacles): ...
+def astar(grid, start_cell, goal_cell, cell_size=0.5):
+    # returns: path as list of (x,y) meters, or None
+    pass
+
+def weighted_astar(grid, start_cell, goal_cell, epsilon=1.5, cell_size=0.5):
+    # returns: path as list of (x,y) meters, or None
+    pass
+
+def is_path_blocked(path, obstacles):
+    # returns: (is_blocked: bool, segment_index: int or None)
+    pass
+
+def replan(tree, blocked_segment, obstacles):
+    # returns: new path as list of (x,y) points, or None
+    pass
+
+def cell_to_xy(cell, cell_size=0.5):
+    # returns: (x, y) in meters
+    pass
+
+
+# ── Person 3 ─────────────────────────────────────────────────
+
+def sample_state(tree, goal, obstacles, wa_path, map_size,
+                 corridor_width=1.0, progress=0.0):
+    # corridor_width adapts based on progress (0.0 to 1.0)
+    # returns: (x, y) sample point
+    pass
+
+def smooth_path(path, obstacles):
+    # returns: smoothed path as list of (x,y) points
+    pass
 ```
 
 ---
@@ -118,7 +145,7 @@ def smooth_path(path, obstacles): ...
 ## 🧪 Mock Data
 
 ```python
-# mock_data.py — shared across all three people
+# mock_data.py
 
 MAP_SIZE = (20.0, 20.0)
 CELL_SIZE = 0.5
@@ -154,451 +181,397 @@ hardcoded_path = [(0,0), (2,0), (4,0), (6,0), (8,0), (10,0)]
 
 ---
 
-# 👤 PERSON 1 — Bi-RRT* Core + ROS2 Integration
-### [Your Name]
+# 👤 PERSON 1 — Bi-RRT* Core + ROS2 + Gazebo Integration
+### [Your Name] | ~40%
 
 ---
 
-### 📌 Responsibility Overview
-You own the core planning algorithm — the heart of the entire project. Everything else plugs into what you build. You also wrap the final algorithm into a ROS2 node and lead the integration of all three modules on Monday.
+### 📌 Overview
+You own the core planning algorithm and all ROS2 + Gazebo integration. You are the backbone of the project — everything plugs into what you build. You also lead integration day on Monday.
 
 ---
 
 ### 📋 Detailed Task List
 
-#### BEFORE WRITING ANY CODE — Friday May 2 Morning
+#### Before Writing Any Code — Friday May 2 Morning
 - [ ] Read the paper (pages 1–4, Section III and IV only)
 - [ ] Write and share `mock_data.py` with the team
 - [ ] Write and share the shared data structures with the team
 - [ ] Agree on coordinate system with Person 2 (meters, continuous space)
-- [ ] Set up your Python dev environment (numpy, matplotlib)
-- [ ] Create the project GitHub repo and push the initial folder structure
+- [ ] Set up Python dev environment (numpy, matplotlib)
+- [ ] Create the GitHub repo and push initial folder structure
 
 ---
 
-#### STEP 1 — Vanilla RRT in Python (Friday May 2)
+#### Step 1 — Vanilla RRT in Python (Friday May 2)
+Do not move to Step 2 until this works and is visualized correctly.
 
-The goal is a working single-tree RRT that finds a path in a static 2D environment and visualizes it with matplotlib. This is your foundation — do not move to Step 2 until this works.
-
-- [ ] Define the node data structure (pos, parent, cost)
-- [ ] Implement `random_sample(map_size)` — returns a random (x,y) point within the map bounds
-- [ ] Implement `get_nearest(tree, point)` — finds the closest node in the tree to a given point using Euclidean distance
-- [ ] Implement `steer(from_pos, to_pos, step_size)` — moves step_size units from from_pos toward to_pos, returns new position
-- [ ] Implement `is_collision(pos, obstacles)` — checks if a position is inside any obstacle (circle collision check)
-- [ ] Implement `is_collision_free_path(pos_a, pos_b, obstacles)` — checks if the straight line between two positions is clear of all obstacles (sample several points along the line)
-- [ ] Implement `extract_path(tree, goal_node)` — traces back through parent pointers from goal node to root and returns the full path as a list of (x,y) points
-- [ ] Implement the main `rrt(start, goal, obstacles, map_size, max_iter, step_size)` loop combining all the above
-- [ ] Add 10–15% goal bias — with that probability, sample the goal point directly instead of a random point (speeds up convergence)
-- [ ] Visualize the result with matplotlib: show the tree growing (grey lines), the final path (red line), start (green dot), goal (blue dot), obstacles (black circles)
-- [ ] Test in at least 3 different static environments with different obstacle configurations
-- [ ] Verify the path is actually collision free by visual inspection
+- [ ] Implement `random_sample(map_size)` — random (x,y) within map bounds
+- [ ] Implement `get_nearest(tree, point)` — closest node in tree by Euclidean distance
+- [ ] Implement `steer(from_pos, to_pos, step_size)` — move step_size units toward target
+- [ ] Implement `is_collision(pos, obstacles)` — circle collision check
+- [ ] Implement `is_collision_free_path(pos_a, pos_b, obstacles)` — sample points along segment and check each
+- [ ] Implement `extract_path(tree, goal_node)` — trace parent pointers back to root
+- [ ] Implement main `rrt()` loop combining all above
+- [ ] Add 10–15% goal bias — sample goal directly with that probability
+- [ ] Visualize with matplotlib: tree (grey), path (red), start (green), goal (blue), obstacles (black)
+- [ ] Test in 3 different static environments
+- [ ] Verify path is collision free visually
 
 ---
 
-#### STEP 2 — Bidirectional RRT in Python (Saturday May 3 Morning)
-
-Add a second tree growing from the goal toward the start simultaneously. When the two trees get close enough, connect them.
-
-- [ ] Initialize two separate trees — forward tree (from start) and reverse tree (from goal)
-- [ ] Implement the alternating growth loop — grow forward tree one iteration, then reverse tree one iteration, repeat
-- [ ] Implement `try_connect(forward_tree, reverse_tree, sigma)` — checks if any node in the forward tree is within distance sigma of any node in the reverse tree with no obstacle between them
-- [ ] When connection is found, merge the two trees into one path — forward path from start to connection point + reverse path from connection point to goal
-- [ ] Handle the case where trees never connect within max_iter — return None
-- [ ] Update matplotlib visualization to show forward tree in blue and reverse tree in green
-- [ ] Test and verify both trees are visually growing and connecting correctly
-- [ ] Compare planning time between vanilla RRT and Bi-RRT on the same environment — Bi-RRT should be noticeably faster
+#### Step 2 — Bidirectional RRT (Saturday May 3 Morning)
+- [ ] Initialize two trees — forward (from start) and reverse (from goal)
+- [ ] Implement alternating growth loop — grow forward one step, reverse one step, repeat
+- [ ] Implement `try_connect(forward_tree, reverse_tree, sigma)` — check if any node pair is within sigma with no obstacle between
+- [ ] When connected, merge into one full path — forward path + reverse path
+- [ ] Handle max_iter exceeded — return None gracefully
+- [ ] Update visualization — forward tree blue, reverse tree green
+- [ ] Verify both trees grow and connect correctly
+- [ ] Compare planning time to vanilla RRT — Bi-RRT should be faster
 
 ---
 
-#### STEP 3 — Add RRT* Rewiring (Saturday May 3 Afternoon)
-
-Add the rewiring step that makes RRT → RRT*. This continuously improves path quality as the tree grows.
-
-- [ ] Add cost tracking to every node — cost = total Euclidean distance from root to that node
-- [ ] When adding a new node, search all nearby nodes within rewire radius r
-- [ ] For each nearby node, check if reaching it through the new node is cheaper than its current cost
-- [ ] If cheaper and path is collision free, update that node's parent and cost (rewire)
-- [ ] Also check if the new node itself is better reached through any nearby node (choose minimum cost parent)
-- [ ] Implement rewiring for both forward and reverse trees
-- [ ] Test that path length measurably improves with rewiring vs without rewiring over 20 runs
-- [ ] Recommended rewire radius: 1.5–2.0x step size
+#### Step 3 — RRT* Rewiring (Saturday May 3 Afternoon)
+- [ ] Add cost field to every node — total Euclidean distance from root
+- [ ] When adding new node, find all nearby nodes within rewire_radius
+- [ ] For each nearby node check if reaching it through new node is cheaper
+- [ ] If cheaper and collision free — rewire (update parent and cost)
+- [ ] Also find minimum cost parent for the new node itself before adding
+- [ ] Apply rewiring to both forward and reverse trees
+- [ ] Verify path length measurably improves vs without rewiring over 20 runs
+- [ ] Recommended rewire_radius = 1.5–2.0x step_size
 
 ---
 
-#### STEP 4 — ROS2 Node Wrapping (Sunday May 4)
-
-Wrap your Bi-RRT* algorithm into a ROS2 node so it can communicate with the robot and the rest of the system.
-
-- [ ] Create a ROS2 Python node file
-- [ ] Subscribe to `/map` topic — receive the occupancy grid map from Gazebo
-- [ ] Subscribe to `/obstacle_positions` topic — receive moving obstacle positions published by Person 2's moving obstacle script (list of obstacle tuples)
-- [ ] Subscribe to `/goal_pose` topic — receive the goal position
-- [ ] Subscribe to `/odom` or `/robot_pose` topic — receive the robot's current position (start point)
-- [ ] Convert the occupancy grid map into your obstacle list format
-- [ ] On receiving a goal, run `weighted_astar()` (from Person 2) to generate `wa_path`
-- [ ] Pass `wa_path` to Person 3's `sample_state()` as the sampling corridor
-- [ ] Run Bi-RRT* using Person 3's `sample_state()` for sampling
-- [ ] Apply Person 3's `smooth_path()` to the result
-- [ ] Publish the final path to `/planned_path` topic as a ROS2 nav_msgs/Path message
-- [ ] On receiving updated obstacle positions, check `is_path_blocked()` (Person 2)
-- [ ] If blocked, call `replan()` (Person 2) and republish the updated path
-- [ ] Add basic logging — print planning time and path length to terminal each run
-- [ ] Test the node compiles and runs without errors before integration day
+#### Step 4 — Moving Obstacle ROS2 Publisher (Sunday May 4 Morning)
+- [ ] Create ROS2 Python node `obstacle_publisher.py`
+- [ ] Implement 3 moving obstacles with different behaviors:
+  - Obstacle 1: straight line bouncing off walls
+  - Obstacle 2: circular path
+  - Obstacle 3: random direction changes
+- [ ] Publish all obstacle positions to `/obstacle_positions` at 10Hz
+  - Format: array of (x, y, radius, vx, vy) tuples
+- [ ] Add Gazebo visual models for each obstacle
+- [ ] Verify published positions match visual positions in Gazebo
+- [ ] Make obstacle speed configurable for experiments
 
 ---
 
-#### STEP 5 — Integration (Monday May 5)
+#### Step 5 — ROS2 Node Wrapping (Sunday May 4 Afternoon)
+- [ ] Create ROS2 Python node `rrt_node.py`
+- [ ] Subscribe to `/map` — receive occupancy grid from Gazebo
+- [ ] Subscribe to `/obstacle_positions` — receive moving obstacle positions
+- [ ] Subscribe to `/goal_pose` — receive goal position
+- [ ] Subscribe to `/odom` — receive robot current position
+- [ ] Convert occupancy grid to obstacle list format
+- [ ] On receiving goal: run `weighted_astar()` → get `wa_path`
+- [ ] Run Bi-RRT* using `sample_state(wa_path=wa_path)` from Person 3
+- [ ] Apply `smooth_path()` from Person 3
+- [ ] Publish final path to `/planned_path` as nav_msgs/Path
+- [ ] Periodically call `is_path_blocked()` from Person 2 on current path
+- [ ] If blocked, call `replan()` from Person 2 and republish updated path
+- [ ] Log planning time and path length to terminal each run
+- [ ] Create launch file that starts everything in one command
+- [ ] Test node compiles and runs without errors before integration day
 
-Lead the full integration of all three modules.
+---
 
-- [ ] Confirm Person 2's functions (`is_path_blocked`, `replan`, `astar`, `weighted_astar`, `cell_to_xy`) work when imported
-- [ ] Confirm Person 3's functions (`sample_state`, `smooth_path`) work when imported
-- [ ] Plug all functions into your ROS2 node — replace placeholders with real implementations
-- [ ] Launch Gazebo world with TurtleBot3 (Person 2's setup)
-- [ ] Launch your ROS2 planner node
-- [ ] Launch Person 3's RViz visualization node
-- [ ] Verify robot receives planned path and starts moving in Gazebo
+#### Step 6 — Gazebo Integration (Monday May 5)
+- [ ] Confirm all Person 2 functions import and work correctly
+- [ ] Confirm all Person 3 functions import and work correctly
+- [ ] Plug all functions into ROS2 node — replace placeholders
+- [ ] Launch Gazebo world with TurtleBot3
+- [ ] Launch planner node
+- [ ] Launch RViz visualization node (Person 3)
+- [ ] Verify robot receives planned path and moves in Gazebo
 - [ ] Trigger moving obstacles and verify replanning occurs
-- [ ] Debug any integration issues as a team
-- [ ] Record a working simulation run once stable
+- [ ] Debug integration issues with team
+- [ ] Record working simulation once stable
 
 ---
 
-#### STEP 6 — Experiments (Monday May 5 Afternoon)
-
-Once integrated, run controlled experiments to collect data for the paper.
-
-- [ ] Run Bi-RRT* (without WA* guidance) 20 times in each of the 3 environments — log planning time, path length, replan count
-- [ ] Run WA*-Bi-RRT* (with WA* guidance) 20 times in each of the 3 environments — log same metrics
+#### Step 7 — Experiments (Monday May 5 Afternoon)
+- [ ] Run Bi-RRT* without WA* guidance — 20 runs × 3 environments
+- [ ] Run WA*-Bi-RRT* with WA* guidance — 20 runs × 3 environments
 - [ ] Run both with and without dynamic obstacles
-- [ ] Save all results to CSV files for Person 3 to plot
+- [ ] Save all results to CSV for Person 3 to plot
 
 ---
 
-#### If Finished Early
-- [ ] Help Person 2 with ROS2 node wrapping
-- [ ] Add a 4th more complex environment for extra experiments
+#### Escalation If Finished Early
+- [ ] Add a 4th more complex environment
+- [ ] Help Person 2 with `replan()` if needed
 
 ---
 
 ---
 
-# 👤 PERSON 2 — A* + Weighted A* + Replanning + Map + Gazebo
-### [Person 2 Name]
+# 👤 PERSON 2 — A* + Weighted A* + Replanning + Maps + Gazebo Worlds
+### [Person 2 Name] | ~30%
 
 ---
 
-### 📌 Responsibility Overview
-You own everything related to the environment — creating the maps, setting up the simulation, and implementing the grid-based planners (A* and Weighted A*). You also implement the path validity checking and replanning logic that lets the robot react to moving obstacles. Your maps and coordinate conversion function are critical dependencies for the whole team — get those done Friday morning.
+### 📌 Overview
+You own all grid-based planning algorithms and the environment. Since we already implemented A* in a previous project, your A* and Weighted A* tasks are mostly adapting existing code. Your main new algorithm work is `is_path_blocked()` and `replan()`. You also create all Gazebo world files and matching grid maps. You do NOT touch ROS2 integration — Person 1 handles that.
 
 ---
 
 ### 📋 Detailed Task List
 
-#### BEFORE WRITING ANY CODE — Friday May 2 Morning
+#### Before Writing Any Code — Friday May 2 Morning
 - [ ] Read the paper (pages 1–4, Section III and IV only)
-- [ ] Read and understand the shared data structures from Person 1
-- [ ] Read and understand mock_data.py
-- [ ] Set up your Python dev environment (numpy, matplotlib)
-- [ ] Set up ROS2 Humble + Gazebo + TurtleBot3 on your machine
-- [ ] Verify TurtleBot3 launches correctly in an empty Gazebo world
+- [ ] Read shared data structures and mock_data.py from Person 1
+- [ ] Set up Python dev environment
+- [ ] Pull A* implementation from previous project
 
 ---
 
-#### STEP 1 — Map Creation (Friday May 2 Morning)
+#### Step 1 — Map Creation (Friday May 2 Morning)
+This is a critical shared dependency — everyone needs the maps to test realistically.
 
-Create the environment that everyone works in. Start simple — complexity comes later.
-
-- [ ] Design Environment 1: Simple open room with one L-shaped wall in the middle (10m × 10m)
-- [ ] Create the Gazebo `.world` file for Environment 1 — box room with wall models
-- [ ] Create the matching grid map for Environment 1 as a 2D numpy array (cell size = 0.5m)
-  - Each cell is 0 (free) or 1 (obstacle)
-  - Grid dimensions must match the Gazebo world dimensions exactly
-- [ ] Implement `cell_to_xy(cell, cell_size=0.5)` — converts grid (row, col) to continuous (x, y) meters
-- [ ] Implement `xy_to_cell(pos, cell_size=0.5)` — converts continuous (x, y) to grid (row, col)
-- [ ] Verify the grid map visually by plotting it with matplotlib — it must look identical to the Gazebo world
-- [ ] Share the map files and conversion functions with the team so everyone can use them for testing
-- [ ] Design Environment 2: Corridor world — narrow passage the robot must navigate through (build Sunday)
-- [ ] Design Environment 3: Cluttered office — many small obstacles scattered (build Sunday)
+- [ ] Design Environment 1: simple open room with one L-shaped wall (10m × 10m)
+- [ ] Create Gazebo `.world` file for Environment 1 — box room with wall models
+- [ ] Create matching grid map as 2D numpy array (cell_size = 0.5m, 0 = free, 1 = obstacle)
+- [ ] Implement `cell_to_xy(cell, cell_size=0.5)` — grid (row,col) → (x,y) meters
+- [ ] Implement `xy_to_cell(pos, cell_size=0.5)` — (x,y) meters → grid (row,col)
+- [ ] Verify grid map visually with matplotlib — must match Gazebo world exactly
+- [ ] Share map files and conversion functions with team immediately
+- [ ] Design Environments 2 and 3 (build Sunday):
+  - Environment 2: narrow corridor world
+  - Environment 3: cluttered office with many small obstacles
 
 ---
 
-#### STEP 2 — A* Implementation (Friday May 2 Afternoon)
+#### Step 2 — A* Adaptation (Friday May 2 Afternoon)
+Adapt from previous project — do not rewrite from scratch.
 
-Implement standard A* on the grid map. This is your first baseline algorithm.
-
-- [ ] Implement the open list (priority queue ordered by f = g + h)
-- [ ] Implement the closed list (set of already visited cells)
-- [ ] Implement the heuristic function h — use Euclidean distance from current cell to goal cell
-- [ ] Implement the main A* search loop:
-  - Pop lowest f node from open list
-  - If it's the goal, reconstruct and return path
-  - Otherwise expand all 8 neighbors (including diagonals)
-  - For each neighbor, compute g, h, f and add to open list if not visited
-- [ ] Implement path reconstruction — trace back through parent pointers from goal to start
-- [ ] Convert the final path from grid cells to (x,y) meters using `cell_to_xy()`
-- [ ] Test A* on the mock grid — verify it finds a valid path around obstacles
-- [ ] Test A* on Environment 1 map — verify visually with matplotlib
-- [ ] Verify the path returned is in (x,y) meters not grid cells
+- [ ] Pull existing A* code from previous project
+- [ ] Verify it runs correctly on mock_grid
+- [ ] Update output — path must be returned as list of (x,y) meters using `cell_to_xy()`
+- [ ] Verify output format matches the shared `path` data structure
+- [ ] Test on Environment 1 grid map — verify path visually with matplotlib
+- [ ] Measure and log planning time for 20 runs
 
 ---
 
-#### STEP 3 — Weighted A* Implementation (Saturday May 3 Morning)
-
-Add the epsilon weight parameter to A*. This is your second baseline algorithm.
-
-- [ ] Copy A* implementation and add epsilon parameter (default 1.5)
-- [ ] Change heuristic to `h_weighted = epsilon * h`
-- [ ] Everything else stays identical to A*
-- [ ] Test with multiple epsilon values: 1.0 (= regular A*), 1.5, 2.0, 3.0
-- [ ] Verify that higher epsilon = faster planning time but longer path
-- [ ] Log planning time and path length for each epsilon value for the paper
-- [ ] Make epsilon easily configurable (will be used in experiments)
+#### Step 3 — Weighted A* (Saturday May 3 Morning)
+- [ ] Copy A* implementation
+- [ ] Add epsilon parameter (default 1.5)
+- [ ] Change heuristic calculation to `h_weighted = epsilon * h`
+- [ ] Everything else identical to A*
+- [ ] Test with epsilon = 1.0, 1.5, 2.0, 3.0
+- [ ] Verify higher epsilon = faster time but longer path
+- [ ] Log planning time and path length for each epsilon value
+- [ ] Make epsilon easily configurable for experiments
 
 ---
 
-#### STEP 4 — Path Validity Checker (Saturday May 3 Afternoon)
-
-Implement the function that detects when a moving obstacle blocks the current path.
-
+#### Step 4 — Path Validity Checker (Saturday May 3 Afternoon)
 - [ ] Implement `is_path_blocked(path, obstacles)`:
-  - Iterate through each segment of the path (consecutive pairs of points)
-  - For each segment, check if any obstacle's circle intersects the line segment
-  - Use point-to-segment distance formula for accurate collision detection
-  - Return `(True, segment_index)` for the first blocked segment found
-  - Return `(False, None)` if path is completely clear
-- [ ] Test against `mock_obstacles_static` — verify (True, 1) returned
-- [ ] Test against `mock_obstacles_moving` — verify (True, 0) returned
-- [ ] Test with an obstacle clearly off the path — verify (False, None) returned
-- [ ] Test with an empty obstacle list — verify (False, None) returned
-- [ ] Test with a single-segment path (just two points)
-- [ ] Make sure it handles edge cases: obstacle exactly touching path boundary, very short path segments
+  - Iterate through each consecutive pair of points (segment) in path
+  - For each segment check if any obstacle circle intersects the line segment
+  - Use point-to-segment distance formula for accurate detection
+  - Return `(True, segment_index)` for first blocked segment
+  - Return `(False, None)` if path is clear
+- [ ] Test against `mock_obstacles_static` — verify `(True, 1)`
+- [ ] Test against `mock_obstacles_moving` — verify `(True, 0)`
+- [ ] Test with obstacle clearly off the path — verify `(False, None)`
+- [ ] Test with empty obstacle list — verify `(False, None)`
+- [ ] Test edge cases: obstacle touching path boundary, very short segments
 
 ---
 
-#### STEP 5 — Replanning Logic (Sunday May 4 Morning)
-
-Implement the function that finds an alternate route when the path is blocked.
-
+#### Step 5 — Replanning Logic (Sunday May 4 Morning)
 - [ ] Implement `replan(tree, blocked_segment, obstacles)`:
-  - Identify the nodes in the existing tree near the blocked segment
-  - Find the last safe node on the current path before the blocked segment
-  - From that safe node, search the existing tree for alternate nodes that bypass the obstacle
+  - Find the last safe node on current path before blocked segment
+  - Search existing tree nodes near the blocked area for alternate routes
   - Connect alternate nodes into a new valid path to the goal
-  - Return the new path if found, or None if no alternate route exists
-  - Do NOT rebuild the tree from scratch — use existing nodes only
-- [ ] Test with `mock_tree` and `mock_obstacles_static` — verify a valid alternate path is returned
-- [ ] Test when no alternate exists — verify None is returned gracefully
-- [ ] Test that returned path is actually collision free
+  - Do NOT rebuild tree from scratch — use existing nodes only
+  - Return new path if found, None if no alternate exists
+- [ ] Test with `mock_tree` and `mock_obstacles_static` — verify valid alternate path returned
+- [ ] Test when no alternate exists — verify None returned gracefully
+- [ ] Verify returned path is collision free
+- [ ] Test that replanned path connects correctly from last safe node to goal
 
 ---
 
-#### STEP 6 — Moving Obstacle Scripts (Sunday May 4 Morning)
-
-Create the moving obstacles that make the environment dynamic.
-
-- [ ] Create a ROS2 Python node that publishes obstacle positions
-- [ ] Implement at least 3 moving obstacles with different behaviors:
-  - Obstacle 1: moves in a straight line and bounces off walls
-  - Obstacle 2: moves in a circular path
-  - Obstacle 3: moves randomly (changes direction occasionally)
-- [ ] Publish all obstacle positions to `/obstacle_positions` topic as a custom message or array
-  - Each obstacle: (x, y, radius, vx, vy)
-  - Publish at 10Hz
-- [ ] Add Gazebo visual models for each moving obstacle so they are visible in simulation
-- [ ] Verify obstacle positions published to ROS2 topic match their visual position in Gazebo
-- [ ] Make obstacle speed configurable (for experiments with different speeds)
+#### Step 6 — Environments 2 and 3 (Sunday May 4 Afternoon)
+- [ ] Create Gazebo world file for Environment 2 (narrow corridor)
+- [ ] Create matching grid map for Environment 2
+- [ ] Create Gazebo world file for Environment 3 (cluttered office)
+- [ ] Create matching grid map for Environment 3
+- [ ] Verify all grid maps match their Gazebo worlds visually
+- [ ] Test A* and Weighted A* on all 3 environments
 
 ---
 
-#### STEP 7 — Gazebo Robot Pipeline (Sunday May 4 Afternoon)
-
-Get the TurtleBot3 moving in Gazebo along a planned path.
-
-- [ ] Spawn TurtleBot3 Waffle in Environment 1 Gazebo world at position (0, 0)
-- [ ] Implement a path follower node:
-  - Subscribe to `/planned_path` topic (published by Person 1's planner node)
-  - Convert path waypoints into velocity commands
-  - Publish velocity commands to `/cmd_vel` to move the robot
-  - Move to each waypoint in sequence, stop when goal reached
-- [ ] Test path follower with `hardcoded_path` from mock data — verify robot moves along it in Gazebo
-- [ ] Verify robot stops correctly when it reaches the goal
-- [ ] Handle the case where the robot slightly overshoots a waypoint
-- [ ] Create launch file that starts Gazebo world + TurtleBot3 + obstacle publisher in one command
-- [ ] Build Environments 2 and 3 Gazebo worlds + matching grid maps
+#### Step 7 — Experiments (Monday May 5)
+- [ ] Run A* on all 3 environments — 20 runs each — log planning time, path length
+- [ ] Run Weighted A* on all 3 environments — 20 runs each — log same metrics
+- [ ] Test Weighted A* with epsilon = 1.0, 1.5, 2.0, 3.0
+- [ ] Test both with and without dynamic obstacles
+- [ ] Save all results to CSV for Person 3 to plot
 
 ---
 
-#### STEP 8 — Integration (Monday May 5)
-
-- [ ] Swap hardcoded path for Person 1's real planner output
-- [ ] Verify the full pipeline: planner publishes path → robot follows path → obstacles move → replan triggers → robot follows new path
-- [ ] Run A* and Weighted A* experiments:
-  - 20 runs each in all 3 environments
-  - Log: planning time, path length
-  - Test with epsilon = 1.0, 1.5, 2.0, 3.0 for Weighted A*
-  - Save results to CSV
-
----
-
-#### If Finished Early
+#### Escalation If Finished Early
 - [ ] Help Person 1 with ROS2 node wrapping
-- [ ] Add obstacle speed variation experiments
+- [ ] Add obstacle speed variation to experiments
 
 ---
 
 ---
 
-# 👤 PERSON 3 — Sampling + Smoothing + Visualization + Metrics
-### [Person 3 Name]
+# 👤 PERSON 3 — Sampling + Originality + Smoothing + Visualization + Metrics
+### [Person 3 Name] | ~30%
 
 ---
 
-### 📌 Responsibility Overview
-You own the originality contribution of the project — the WA*-guided sampling strategy that makes WA*-Bi-RRT* faster than vanilla Bi-RRT*. You also own path smoothing, RViz visualization, and all metrics logging and plotting. Your `sample_state()` function is what makes this project novel — it needs to be solid and well-tested.
+### 📌 Overview
+You own the originality contribution of the entire project — the adaptive WA*-guided sampling strategy. Your `sample_state()` function is what makes WA*-Bi-RRT* novel and different from everything else in the literature. You also own path smoothing, RViz visualization, and all metrics and plots. If you finish early, there are clear originality extensions that will strengthen the paper further.
 
 ---
 
 ### 📋 Detailed Task List
 
-#### BEFORE WRITING ANY CODE — Friday May 2 Morning
+#### Before Writing Any Code — Friday May 2 Morning
 - [ ] Read the paper (pages 1–4, Section III and IV only)
-- [ ] Read and understand the shared data structures from Person 1
-- [ ] Read and understand mock_data.py
-- [ ] Set up your Python dev environment (numpy, matplotlib)
+- [ ] Read shared data structures and mock_data.py from Person 1
+- [ ] Set up Python dev environment (numpy, matplotlib)
 - [ ] Set up ROS2 + RViz on your machine
 - [ ] Verify RViz launches and displays a basic marker
 
 ---
 
-#### STEP 1 — RViz Basic Setup (Friday May 2)
+#### Step 1 — RViz Setup (Friday May 2)
+Get RViz ready before the algorithm exists so you can visualize from Day 1.
 
-Get RViz ready to visualize the planning process before the algorithm exists.
-
-- [ ] Create a ROS2 Python visualization node
-- [ ] Set up RViz configuration file (.rviz) with the panels you need
-- [ ] Implement publisher for forward tree edges — blue lines in RViz (MarkerArray)
-- [ ] Implement publisher for reverse tree edges — green lines in RViz (MarkerArray)
-- [ ] Implement publisher for WA* corridor path — yellow line in RViz (Marker)
-- [ ] Implement publisher for final planned path — red line in RViz (Marker)
-- [ ] Implement publisher for start point — green sphere marker
-- [ ] Implement publisher for goal point — blue sphere marker
-- [ ] Implement publisher for obstacle positions — grey sphere markers, update in real time
-- [ ] Test all publishers with hardcoded mock data — verify everything displays correctly in RViz before the real algorithm exists
-- [ ] Make sure the visualization updates in real time as the tree grows (subscribe to tree update topic)
-
----
-
-#### STEP 2 — Basic Sampling (Saturday May 3)
-
-Implement the first two sampling behaviors. These are the foundation that the WA* guidance builds on top of.
-
-- [ ] Implement `random_sample(map_size)` — returns a uniformly random (x,y) within map bounds
-- [ ] Implement `goal_biased_sample(goal)` — returns the goal point directly
-- [ ] Implement the probability switch in `sample_state()`:
-  - Generate random number p between 0 and 1
-  - If p < 0.15, return goal (goal bias)
-  - Otherwise return random sample
-- [ ] Test standalone with mock_tree — call sample_state() 1000 times and verify ~15% of samples are exactly the goal point
-- [ ] Plot the distribution of 1000 samples with matplotlib — verify uniform coverage of the map
+- [ ] Create ROS2 Python visualization node `rviz_publisher.py`
+- [ ] Create RViz configuration file (.rviz)
+- [ ] Implement publisher for forward tree edges — blue lines (MarkerArray)
+- [ ] Implement publisher for reverse tree edges — green lines (MarkerArray)
+- [ ] Implement publisher for WA* corridor path — yellow line (Marker)
+- [ ] Implement publisher for final planned path — red line (Marker)
+- [ ] Implement publisher for start point — green sphere
+- [ ] Implement publisher for goal point — blue sphere
+- [ ] Implement publisher for obstacle positions — grey spheres, update in real time
+- [ ] Test all publishers with hardcoded mock data — verify everything displays in RViz
+- [ ] Ensure visualization updates in real time as tree grows
 
 ---
 
-#### STEP 3 — WA* Corridor Guidance (Sunday May 4 Morning)
+#### Step 2 — Basic Sampling (Saturday May 3)
+- [ ] Implement `random_sample(map_size)` — uniform random (x,y) within bounds
+- [ ] Implement `goal_biased_sample(goal)` — returns goal point directly
+- [ ] Implement probability switch in `sample_state()`:
+  - p < 0.15 → return goal (goal bias)
+  - else → return random sample
+- [ ] Test: call `sample_state()` 1000 times, verify ~15% are exactly the goal
+- [ ] Plot distribution of 1000 samples — verify uniform map coverage
 
-Add the core originality contribution — guided sampling along the WA* path corridor. This is what makes WA*-Bi-RRT* different from vanilla Bi-RRT*.
+---
+
+#### Step 3 — WA* Corridor Guidance (Sunday May 4 Morning)
+This is the core originality contribution. The corridor guides RRT toward the goal faster.
 
 - [ ] Implement `sample_near_corridor(wa_path, corridor_width)`:
   - Pick a random waypoint from wa_path
-  - Sample a random point within corridor_width radius of that waypoint
-  - Make sure the sampled point stays within map bounds
-  - Return the sampled (x,y) point
-- [ ] Update the probability switch in `sample_state()`:
-  - p < 0.60 → sample near WA* corridor (guided)
-  - p < 0.75 → sample toward goal (goal bias)
-  - p < 0.90 → sample away from obstacle projections (bias — next step)
-  - else → pure random sample
-- [ ] Test with mock_wa_path — plot 1000 samples and verify they cluster around the WA* corridor
-- [ ] Test with corridor_width = 0.5, 1.0, 2.0 — visually verify wider corridor = more spread
-- [ ] Verify that when wa_path is empty or None, falls back to pure random sampling gracefully
+  - Sample random point within corridor_width radius of that waypoint
+  - Clamp to map bounds
+  - Return sampled (x,y)
+- [ ] Update probability switch:
+  - p < 0.60 → sample near WA* corridor
+  - p < 0.75 → sample toward goal
+  - p < 0.90 → sample away from obstacles (next step)
+  - else → pure random
+- [ ] Test with mock_wa_path — plot 1000 samples, verify clustering around corridor
+- [ ] Test corridor_width = 0.5, 1.0, 2.0 — verify wider = more spread visually
+- [ ] Handle edge case: wa_path is empty or None → fall back to pure random
 
 ---
 
-#### STEP 4 — Obstacle Projection Bias (Sunday May 4 Morning)
-
-Add the dynamic safety bias — steer sampling away from where obstacles are predicted to be.
-
+#### Step 4 — Obstacle Projection Bias (Sunday May 4 Morning)
 - [ ] Implement `predict_obstacle_position(obstacle, steps_ahead=5)`:
-  - Given obstacle (x, y, radius, vx, vy), predict where it will be in steps_ahead steps
-  - Return predicted (x, y) position
+  - Given (x, y, radius, vx, vy), predict position in steps_ahead steps
+  - Return predicted (x, y)
 - [ ] Implement `sample_away_from_obstacles(obstacles, map_size, steps_ahead=5)`:
-  - Predict positions of all obstacles steps_ahead into the future
-  - Generate a random candidate sample
-  - Reject the sample if it's within safety_margin of any predicted obstacle position
-  - Keep trying until a safe sample is found (max 10 attempts, then return best)
-  - Return the safe sample
-- [ ] Integrate into the probability switch — p < 0.90 → call sample_away_from_obstacles()
-- [ ] Test with mock_obstacles_moving — plot 1000 samples and verify they avoid predicted obstacle areas
-- [ ] Tune safety_margin (recommend starting at 2x obstacle radius)
+  - Predict all obstacle positions steps_ahead into future
+  - Generate random candidate sample
+  - Reject if within safety_margin of any predicted position
+  - Retry up to 10 times, return best candidate
+- [ ] Integrate into probability switch at p < 0.90
+- [ ] Test with mock_obstacles_moving — plot 1000 samples, verify avoidance of predicted areas
+- [ ] Tune safety_margin (start at 2x obstacle radius)
 
 ---
 
-#### STEP 5 — Path Smoothing (Sunday May 4 Afternoon)
-
-Implement the shortcutting algorithm that cleans up the jagged RRT path.
-
+#### Step 5 — Path Smoothing (Sunday May 4 Afternoon)
 - [ ] Implement `smooth_path(path, obstacles)`:
-  - Start with i = 0 (first node)
-  - Try to connect node i directly to node i+2, i+3, etc. skipping intermediate nodes
-  - Use `is_collision_free_path()` to check if the shortcut is clear
-  - If clear, remove the intermediate nodes and update i
-  - If not clear, advance i by 1 and try again
-  - Continue until no more shortcuts can be made
-  - Return the smoothed path
-- [ ] Test with a straight line path and no obstacles — verify all intermediate nodes are removed
-- [ ] Test with obstacles in the way — verify intermediate nodes are kept where needed
-- [ ] Measure path length before and after smoothing — verify smoothing always reduces or maintains path length
-- [ ] Test that smoothed path is still collision free
+  - Start at i = 0
+  - Try connecting node i directly to i+2, i+3, skipping intermediates
+  - Use collision free path check for each shortcut attempt
+  - If clear, remove intermediate nodes
+  - If blocked, advance i by 1
+  - Continue until no more shortcuts possible
+  - Return smoothed path
+- [ ] Test with straight line + no obstacles — verify all intermediates removed
+- [ ] Test with obstacles — verify intermediates kept where needed
+- [ ] Verify smoothed path length always ≤ original path length
+- [ ] Verify smoothed path is still collision free
 
 ---
 
-#### STEP 6 — Metrics Logger (Monday May 5)
-
-Build the metrics system that collects data from all 5 algorithms for the paper.
-
-- [ ] Create `logger.py` with a `MetricsLogger` class
-- [ ] Implement `start_timer()` — records planning start time
-- [ ] Implement `stop_timer()` — records planning end time, computes planning time in seconds
-- [ ] Implement `log_path(path)` — computes and stores total path length in meters
-- [ ] Implement `log_replan()` — increments replan counter by 1
-- [ ] Implement `log_run(algorithm_name, environment_name, success)` — saves one complete run result
-- [ ] Implement `save_to_csv(filename)` — saves all logged runs to a CSV file with columns:
-  - algorithm, environment, run_number, planning_time, path_length, replan_count, success, epsilon (for WA*)
-- [ ] Test logger standalone — simulate 5 fake runs and verify CSV is written correctly
-- [ ] Integrate logger into Person 1's ROS2 node (coordinate with Person 1 on Monday)
-- [ ] Run all 5 algorithms, 20 runs each, in all 3 environments — save results
+#### Step 6 — Metrics Logger (Monday May 5)
+- [ ] Create `MetricsLogger` class in `logger.py`
+- [ ] Implement `start_timer()` and `stop_timer()` — compute planning time
+- [ ] Implement `log_path(path)` — compute total path length in meters
+- [ ] Implement `log_replan()` — increment replan counter
+- [ ] Implement `log_run(algorithm, environment, success, epsilon=None)` — save one run
+- [ ] Implement `save_to_csv(filename)` with columns:
+  - algorithm, environment, run_number, planning_time, path_length, replan_count, success, epsilon
+- [ ] Test standalone — simulate 5 fake runs, verify CSV written correctly
+- [ ] Coordinate with Person 1 to integrate logger into ROS2 node on Monday
 
 ---
 
-#### STEP 7 — Results Plots (Tuesday May 6)
-
-Generate the comparison plots for the paper from the collected CSV data.
-
-- [ ] Load all CSV results into pandas or numpy
-- [ ] Plot 1: Bar chart — average planning time for all 5 algorithms across 3 environments
-- [ ] Plot 2: Bar chart — average path length for all 5 algorithms across 3 environments
-- [ ] Plot 3: Line plot — planning time vs epsilon for Weighted A* (epsilon = 1.0, 1.5, 2.0, 3.0)
+#### Step 7 — Results Plots (Tuesday May 6)
+- [ ] Load all CSV results
+- [ ] Plot 1: Bar chart — average planning time for all 5 algorithms × 3 environments
+- [ ] Plot 2: Bar chart — average path length for all 5 algorithms × 3 environments
+- [ ] Plot 3: Line plot — planning time vs epsilon for Weighted A*
 - [ ] Plot 4: Line plot — path length vs epsilon for Weighted A*
-- [ ] Plot 5: Bar chart — replan count for dynamic obstacle experiments (RRT variants only)
+- [ ] Plot 5: Bar chart — replan count for dynamic obstacle experiments
 - [ ] Plot 6: Bar chart — success rate for all 5 algorithms with dynamic obstacles
-- [ ] Save all plots as high-resolution PNG files for the paper
-- [ ] Make sure all plots have proper axis labels, titles, and legends
+- [ ] Save all plots as high-resolution PNG for the paper
+- [ ] All plots must have proper axis labels, titles, and legends
 
 ---
 
-#### If Finished Early
-- [ ] Help Person 2 with `replan()` implementation
-- [ ] Add corridor width experiment — run WA*-Bi-RRT* with corridor_width = 0.5, 1.0, 2.0, 3.0 and plot effect on planning time
+### 🚀 Escalation — If Finished Early
+
+#### Level 1 — Adaptive Corridor Width (First Priority)
+This directly strengthens the originality contribution.
+
+- [ ] Implement `compute_corridor_width(progress, base_width=1.0, min_width=0.3)`:
+  - `progress` = how close the nearest tree node is to the goal (0.0 to 1.0)
+  - `corridor_width = max(min_width, base_width * (1 - progress))`
+  - Wide early (explore broadly) → narrow near goal (exploit corridor)
+- [ ] Pass `progress` into `sample_state()` and use adaptive width
+- [ ] Add corridor_width over time plot to metrics
+- [ ] Compare fixed vs adaptive corridor in experiments — add to paper
+
+#### Level 2 — Adaptive Obstacle Prediction (Second Priority)
+- [ ] Implement `compute_steps_ahead(obstacle_speed, base_steps=5, max_speed=1.0)`:
+  - `steps_ahead = base_steps * (obstacle_speed / max_speed)`
+  - Fast obstacles → predict further ahead
+  - Slow obstacles → predict closer
+- [ ] Update `predict_obstacle_position()` to use adaptive steps_ahead
+- [ ] Compare fixed vs adaptive prediction in experiments — add to paper
+
+#### Level 3 — Help Others (Third Priority)
+- [ ] Help Person 2 with `replan()` if they are behind
+- [ ] Help Person 1 with ROS2 integration testing
 
 ---
 
@@ -608,11 +581,11 @@ Generate the comparison plots for the paper from the collected CSV data.
 
 | Day | Person 1 | Person 2 | Person 3 |
 |---|---|---|---|
-| Fri May 2 | Share data structures. Vanilla RRT done. | Share maps. A* done. Gazebo basic setup. | RViz setup. Basic sampling started. |
-| Sat May 3 | Bi-RRT* + rewiring done. | Weighted A* done. is_path_blocked() done. | Basic sampling done. WA* guidance started. |
-| Sun May 4 | ROS2 node done. | replan() done. Moving obstacles. Robot following path. Envs 2+3. | WA* guidance + obstacle bias + smooth_path + full RViz done. |
+| Fri May 2 | Share data structures. Vanilla RRT done. | Share maps. A* adapted. Gazebo Env 1 ready. | RViz setup. Basic sampling started. |
+| Sat May 3 | Bi-RRT* + rewiring done. | Weighted A* done. is_path_blocked() done. | Basic sampling + WA* corridor started. |
+| Sun May 4 | Moving obstacle publisher. ROS2 node done. | replan() done. Envs 2+3 done. | WA* guidance + obstacle bias + smooth_path + full RViz done. |
 | **Mon May 5** | **INTEGRATION DAY — everyone available all day** | | |
-| Tue May 6 | Support paper writing | Support paper writing | Generate all plots. Paper + slides. |
+| Tue May 6 | Support paper writing | Support paper writing | All plots done. Lead paper + slides. |
 | Wed May 7 | Buffer — polish and submit | | |
 | Thu May 8 | 🚨 Hard deadline @ 11:59PM | | |
 
@@ -622,21 +595,40 @@ Generate the comparison plots for the paper from the collected CSV data.
 
 ```
 I.   Introduction
-II.  Background — A*, Weighted A*, RRT, Bi-RRT*
+       — why dynamic environments break grid-based planners
+       — motivation for combining WA* and Bi-RRT*
+
+II.  Background
+       A. A* and Weighted A*
+       B. RRT and Bi-RRT*
+       C. Related work (cite base paper)
+
 III. Proposed Algorithm — WA*-Bi-RRT*
-IV.  Experiments — 5 algorithms × 3 environments × 20 runs
+       A. WA* corridor generation
+       B. Adaptive guided sampling strategy
+       C. Adaptive obstacle projection bias
+       D. Bidirectional tree growth + connection logic
+       E. RRT* rewiring
+
+IV.  Experiments
+       — 3 environments × 5 algorithms × 20 runs
+       — Metrics: planning time, path length, replan count, success rate
+       — Comparison table: all 5 algorithms × 3 environments
+       — Plots: planning time vs epsilon, path length over iterations,
+                corridor width effect, adaptive vs fixed bias
+
 V.   Results & Discussion
 VI.  Conclusion
 ```
 
 ---
 
-## 📏 Metrics Collected (All 5 Algorithms, 20 runs each)
+## 📏 Metrics (All 5 Algorithms, 20 runs each)
 
 | Metric | Description |
 |---|---|
 | Planning time (s) | Time to first valid path |
-| Path length (m) | Total Euclidean length of smoothed path |
+| Path length (m) | Total length of smoothed path |
 | Replan count | Times path was blocked and rerouted |
 | Success rate (%) | % of runs with valid path found |
 | Path optimality | Path length / A* optimal path length |
@@ -646,8 +638,8 @@ VI.  Conclusion
 ## ⚠️ Ground Rules
 
 1. Read data structures + mock data **Friday morning before writing any code**
-2. **Do NOT change function signatures**
+2. **Do NOT change function signatures** — everything connects through these
 3. Test your functions **standalone with mock data** before Mon May 5
 4. **Coordinate system:** everything in meters — A\* must convert grid cells to (x,y) meters
 5. Stuck for **more than 2 hours** → message the group immediately
-6. Finish early → pick up the escalation task in your section
+6. Finish early → follow the escalation path in your section
