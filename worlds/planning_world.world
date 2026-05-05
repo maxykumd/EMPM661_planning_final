@@ -1,0 +1,208 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="planning_world">
+
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- Bottom wall -->
+    <model name="wall_bottom">
+      <static>true</static>
+      <pose>3.0 0.0 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>6.0 0.1 0.2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>6.0 0.1 0.2</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Top wall -->
+    <model name="wall_top">
+      <static>true</static>
+      <pose>3.0 6.0 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>6.0 0.1 0.2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>6.0 0.1 0.2</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Left wall -->
+    <model name="wall_left">
+      <static>true</static>
+      <pose>0.0 3.0 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.1 6.0 0.2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.1 6.0 0.2</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Right wall -->
+    <model name="wall_right">
+      <static>true</static>
+      <pose>6.0 3.0 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.1 6.0 0.2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.1 6.0 0.2</size></box></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Static obstacle 1 -->
+    <model name="obstacle_1">
+      <static>true</static>
+      <pose>1.5 1.5 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Static obstacle 2 -->
+    <model name="obstacle_2">
+      <static>true</static>
+      <pose>4.5 1.5 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Static obstacle 3 -->
+    <model name="obstacle_3">
+      <static>true</static>
+      <pose>2.5 4.5 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Moving obstacle 1 — moves horizontally via plugin -->
+    <model name="moving_obs_1">
+      <static>false</static>
+      <pose>3.0 1.5 0.15 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>1.0</mass>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+          <material><ambient>1.0 0.5 0.0 1</ambient></material>
+        </visual>
+      </link>
+      <plugin name="moving_obs_1_plugin" filename="libgazebo_ros_planar_move.so">
+        <ros>
+          <remapping>cmd_vel:=moving_obs_1/cmd_vel</remapping>
+          <remapping>odom:=moving_obs_1/odom</remapping>
+        </ros>
+        <update_rate>10</update_rate>
+        <publish_rate>10</publish_rate>
+      </plugin>
+    </model>
+
+    <!-- Moving obstacle 2 — moves vertically -->
+    <model name="moving_obs_2">
+      <static>false</static>
+      <pose>1.5 3.5 0.15 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>1.0</mass>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+          <material><ambient>1.0 0.5 0.0 1</ambient></material>
+        </visual>
+      </link>
+      <plugin name="moving_obs_2_plugin" filename="libgazebo_ros_planar_move.so">
+        <ros>
+          <remapping>cmd_vel:=moving_obs_2/cmd_vel</remapping>
+          <remapping>odom:=moving_obs_2/odom</remapping>
+        </ros>
+        <update_rate>10</update_rate>
+        <publish_rate>10</publish_rate>
+      </plugin>
+    </model>
+
+    <!-- Moving obstacle 3 — moves diagonally -->
+    <model name="moving_obs_3">
+      <static>false</static>
+      <pose>3.5 3.5 0.15 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>1.0</mass>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
+          </geometry>
+          <material><ambient>1.0 0.5 0.0 1</ambient></material>
+        </visual>
+      </link>
+      <plugin name="moving_obs_3_plugin" filename="libgazebo_ros_planar_move.so">
+        <ros>
+          <remapping>cmd_vel:=moving_obs_3/cmd_vel</remapping>
+          <remapping>odom:=moving_obs_3/odom</remapping>
+        </ros>
+        <update_rate>10</update_rate>
+        <publish_rate>10</publish_rate>
+      </plugin>
+    </model>
+
+  </world>
+</sdf>
