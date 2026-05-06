@@ -1,0 +1,89 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.5
+      Color: 160; 160; 164
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 12
+      Reference Frame: <Fixed Frame>
+      Value: true
+
+    - Class: rviz_default_plugins/Path
+      Name: Planned Path
+      Enabled: true
+      Topic: /planned_path
+      Color: 25; 255; 0
+      Line Style: Lines
+      Line Width: 0.03
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Alpha: 1
+
+    - Class: rviz_default_plugins/Marker
+      Name: Path Visualization
+      Enabled: true
+      Topic: /path_visualization
+      Namespaces: {}
+
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Planning Markers
+      Enabled: true
+      Topic: /planning_markers
+      Namespaces: {}
+
+    - Class: rviz_default_plugins/Odometry
+      Name: Robot Odometry
+      Enabled: true
+      Topic: /odom
+      Angle Tolerance: 0.1
+      Distance Tolerance: 0.1
+      Keep: 100
+      Color: 255; 25; 0
+      Color Style: Unique
+      Length: 0.3
+      Radius: 0.05
+      Shape: Arrow
+      Alpha: 1
+
+    - Class: rviz_default_plugins/RobotModel
+      Name: Robot Model
+      Enabled: true
+      Topic: /robot_description
+      Alpha: 1
+      Robot Description: robot_description
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: odom
+    Frame Rate: 30
+
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Top Down View
+      Near Clip Distance: 0.01
+      Scale: 80       # ← zoomed out to see full 6x6 map
+      Target Frame: <Fixed Frame>
+      X: 3.0
+      Y: 3.0
+      Angle: 0

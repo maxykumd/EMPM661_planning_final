@@ -1,0 +1,22 @@
+bashcd ~/ros2_ws/src/wa_birrt_star
+First create the .gitignore:
+bashcat > .gitignore << 'EOF'
+# Build artifacts
+build/
+install/
+log/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Backup folders
+*_backup/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
