@@ -69,92 +69,93 @@
       </link>
     </model>
 
-    <!-- Static obstacle 1: (1.5, 1.5) -->
+  
+    <!-- Wall obstacle 1 — top of wall -->
     <model name="obstacle_1">
       <static>true</static>
-      <pose>1.5 1.5 0.15 0 0 0</pose>
+      <pose>2.8 5.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 2: (3.0, 1.5) -->
+    <!-- Wall obstacle 2 -->
     <model name="obstacle_2">
       <static>true</static>
-      <pose>3.0 1.5 0.15 0 0 0</pose>
+      <pose>2.8 4.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 3: (1.5, 3.0) -->
+    <!-- Wall obstacle 3 — directly on diagonal path, forces detour -->
     <model name="obstacle_3">
       <static>true</static>
-      <pose>1.5 3.0 0.15 0 0 0</pose>
+      <pose>2.8 3.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 4: (3.0, 3.0) -->
+    <!-- Wall obstacle 4 — bottom of wall, gap above this at y≈2.0 -->
     <model name="obstacle_4">
       <static>true</static>
-      <pose>3.0 3.0 0.15 0 0 0</pose>
+      <pose>2.8 1.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 5: (4.5, 1.5) -->
+    <!-- Wall obstacle 5 -->
     <model name="obstacle_5">
       <static>true</static>
-      <pose>4.5 1.5 0.15 0 0 0</pose>
+      <pose>2.0 1.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 6: (2.5, 4.5) -->
+    <!-- Guardian — blocks direct exit after gap, forces second routing decision -->
     <model name="obstacle_6">
       <static>true</static>
-      <pose>2.5 4.5 0.15 0 0 0</pose>
+      <pose>3.8 1.25 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.45</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
-          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+          <geometry><cylinder><radius>0.45</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.5 0.1 0.8 1</ambient></material>
         </visual>
       </link>
     </model>

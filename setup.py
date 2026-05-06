@@ -30,8 +30,10 @@ setup(
         'console_scripts': [
             'planner_node        = wa_birrt_star.planner_node:main',
             'path_follower       = wa_birrt_star.path_follower_node:main',
-            'static_obstacle_pub = wa_birrt_star.static_obstacle_publisher:main',
-            'static_only_pub     = wa_birrt_star.static_only_publisher:main',  # ← add
+            'moving_obstacle_pub = wa_birrt_star.obstacle_move_publisher:main',
+            'static_obstacle_pub     = wa_birrt_star.obstacle_static_publisher:main',
+            'viz_node = wa_birrt_star.viz_node:main',
+
         ],
     },
 )

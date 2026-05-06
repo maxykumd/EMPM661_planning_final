@@ -69,68 +69,173 @@
       </link>
     </model>
 
-    <!-- Static obstacle 1 -->
+    <!--
+      STATIC OBSTACLE LAYOUT — Wall + Gap + Guardian
+      ================================================
+      Wall at x=2.8 blocks the entire direct diagonal from Start(0.3,5.5)→Goal(5.5,0.3)
+      Single gap at y≈2.0 (0.90m navigable width) is the only crossing point
+      Guardian at (3.8,1.5) forces a second routing decision after the gap
+
+      mock_data.py OBSTACLES:
+        (2.8, 5.0, 0.35, 0.0, 0.0),
+        (2.8, 4.0, 0.35, 0.0, 0.0),
+        (2.8, 3.0, 0.35, 0.0, 0.0),
+        (2.8, 1.0, 0.35, 0.0, 0.0),
+        (3.8, 1.5, 0.45, 0.0, 0.0),
+    -->
+
+    <!-- Wall top -->
     <model name="obstacle_1">
       <static>true</static>
-      <pose>1.5 1.5 0.1 0 0 0</pose>
+      <pose>2.8 5.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.65</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.65</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 2 -->
+    <!-- Wall upper-mid -->
     <model name="obstacle_2">
       <static>true</static>
-      <pose>4.5 1.5 0.1 0 0 0</pose>
+      <pose>2.8 4.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Static obstacle 3 -->
+    <!-- Wall lower-mid — diagonal crosses here -->
     <model name="obstacle_3">
       <static>true</static>
-      <pose>2.5 4.5 0.1 0 0 0</pose>
+      <pose>2.8 3.0 0.15 0 0 0</pose>
       <link name="link">
         <collision name="collision">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry><cylinder><radius>0.25</radius><length>0.3</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>0.8 0.2 0.2 1</ambient></material>
         </visual>
       </link>
     </model>
 
-    <!-- Moving obstacle 1 — moves horizontally via plugin -->
-    <model name="moving_obs_1">
-      <static>false</static>
-      <pose>3.0 1.5 0.15 0 0 0</pose>
+    <!-- Wall bottom — gap above this at y≈2.0 -->
+    <model name="obstacle_4">
+      <static>true</static>
+      <pose>2.8 1.0 0.15 0 0 0</pose>
       <link name="link">
-        <inertial>
-          <mass>1.0</mass>
-        </inertial>
         <collision name="collision">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.35</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Bottom wall LEFT — replaces old (1.0, 1.0) circle -->
+    <model name="obstacle_5a">
+      <static>true</static>
+      <pose>0.55 0.55 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Bottom wall MID -->
+    <model name="obstacle_5b">
+      <static>true</static>
+      <pose>1.35 0.55 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Bottom wall RIGHT -->
+    <model name="obstacle_5c">
+      <static>true</static>
+      <pose>2.15 0.55 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Guardian — purple, forces second routing decision after gap -->
+    <model name="obstacle_6">
+      <static>true</static>
+      <pose>3.8 1.25 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.45</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.45</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.5 0.1 0.8 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!--
+      MOVING OBSTACLE LAYOUT
+      ======================
+      Obs 1 — Horizontal crosser: patrols through the gap at y=2.0
+               Crosses robot path at the critical gap crossing point
+               Most likely to trigger replanning — best demo value
+
+      Obs 2 — Vertical pacer: moves up/down in the approach zone (x=1.5)
+               Intercepts robot on the way to the gap
+               Forces replanning before the wall
+
+      Obs 3 — Diagonal exit chaser: moves diagonally in exit zone (right of wall)
+               Stresses the path from guardian to goal
+               Hardest to avoid — robot must time its crossing
+
+      mock_data.py MOVING_OBSTACLES:
+        (1.5, 2.0, 0.20,  0.25,  0.0),
+        (1.5, 3.5, 0.20,  0.0,   0.20),
+        (4.5, 2.5, 0.20,  0.15, -0.15),
+    -->
+
+    <!-- Moving obs 1 — horizontal gap crosser -->
+    <model name="moving_obs_1">
+      <static>false</static>
+      <pose>1.5 2.0 0.15 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>1.0</mass></inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>1.0 0.5 0.0 1</ambient></material>
         </visual>
       </link>
@@ -144,23 +249,17 @@
       </plugin>
     </model>
 
-    <!-- Moving obstacle 2 — moves vertically -->
+    <!-- Moving obs 2 — vertical approach pacer -->
     <model name="moving_obs_2">
       <static>false</static>
-      <pose>1.5 3.5 0.15 0 0 0</pose>
+      <pose>1.5 4.0 0.15 0 0 0</pose>
       <link name="link">
-        <inertial>
-          <mass>1.0</mass>
-        </inertial>
+        <inertial><mass>1.0</mass></inertial>
         <collision name="collision">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>1.0 0.5 0.0 1</ambient></material>
         </visual>
       </link>
@@ -174,23 +273,17 @@
       </plugin>
     </model>
 
-    <!-- Moving obstacle 3 — moves diagonally -->
+    <!-- Moving obs 3 — diagonal exit chaser -->
     <model name="moving_obs_3">
       <static>false</static>
-      <pose>3.5 3.5 0.15 0 0 0</pose>
+      <pose>4.5 2.5 0.15 0 0 0</pose>
       <link name="link">
-        <inertial>
-          <mass>1.0</mass>
-        </inertial>
+        <inertial><mass>1.0</mass></inertial>
         <collision name="collision">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <cylinder><radius>0.20</radius><length>0.3</length></cylinder>
-          </geometry>
+          <geometry><cylinder><radius>0.20</radius><length>0.3</length></cylinder></geometry>
           <material><ambient>1.0 0.5 0.0 1</ambient></material>
         </visual>
       </link>

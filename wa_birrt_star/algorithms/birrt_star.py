@@ -96,7 +96,7 @@ def birrt_star(start, goal, obstacles, map_size,
         fw_sample = sample_state(
             tree=fw_tree, goal=goal, obstacles=obstacles,
             wa_path=wa_path, map_size=map_size,
-            corridor_width=0.8, progress=progress
+            corridor_width=1.2, progress=progress
         )
         fw_nearest = get_nearest(fw_tree, fw_sample)
         fw_new_pos = steer(fw_nearest["pos"], fw_sample, step_size)
@@ -116,7 +116,7 @@ def birrt_star(start, goal, obstacles, map_size,
         rv_sample   = sample_state(
             tree=rv_tree, goal=start, obstacles=obstacles,
             wa_path=wa_path, map_size=map_size,
-            corridor_width=0.8, progress=rv_progress
+            corridor_width=1.2, progress=rv_progress
         )
         rv_nearest = get_nearest(rv_tree, rv_sample)
         rv_new_pos = steer(rv_nearest["pos"], rv_sample, step_size)
@@ -136,10 +136,14 @@ def birrt_star(start, goal, obstacles, map_size,
                                           clearance=0.0)
         if f_node is not None:
             path = merge_path(f_node, r_node)
+            raw_length = len(path)
+            #path = smooth_path(path, obstacles)
             print(f" Path found in {i+1} iterations")
             print(f" Forward tree: {len(fw_tree)} nodes")
             print(f" Reverse tree: {len(rv_tree)} nodes")
-            print(f" Waypoints:    {len(path)}")
+            print(f" Raw path:     {raw_length} waypoints")
+            print(f" Smoothed:     {len(path)} waypoints")
+
             return path, fw_tree, rv_tree
 
     print(f"No path found after {max_iter} iterations")

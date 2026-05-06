@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mock_data import MAP_SIZE, CLEARANCE, OBSTACLES, START, GOAL, GOAL_BIAS
+from mock_data import MAP_SIZE, STEP_SIZE, CLEARANCE, OBSTACLES, START, GOAL, GOAL_BIAS
 
 def random_sample(map_size):
     "pick rand point inside map size 20*20m"
@@ -357,7 +357,6 @@ def animate_exploration(forward_tree, obstacles, map_size,
 
 
 if __name__ == "__main__":
-    from wa_birrt_star.algorithms.mock_data import STEP_SIZE
 
     print("=" * 50)
     print("Running Vanilla RRT...")

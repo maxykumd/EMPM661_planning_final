@@ -7,18 +7,14 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-
-    pkg_wa       = get_package_share_directory('wa_birrt_star')
-    pkg_gz_ros   = get_package_share_directory('gazebo_ros')
-    pkg_tb3_gz   = get_package_share_directory('turtlebot3_gazebo')
-    pkg_tb3_desc = get_package_share_directory('turtlebot3_description')
+    pkg_wa     = get_package_share_directory('wa_birrt_star')
+    pkg_gz_ros = get_package_share_directory('gazebo_ros')
+    pkg_tb3_gz = get_package_share_directory('turtlebot3_gazebo')
+    pkg_nav2   = get_package_share_directory('nav2_bringup')
 
     world_file = os.path.join(pkg_wa, 'worlds', 'planning_world_static.world')
 
-    # Read URDF for robot state publisher
-    urdf_file = os.path.join(
-        pkg_tb3_desc, 'urdf', 'turtlebot3_waffle.urdf'
-    )
+    urdf_file = os.path.join(pkg_nav2, 'urdf', 'turtlebot3_waffle.urdf')
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
 
@@ -67,7 +63,7 @@ def generate_launch_description():
         # 5. Static obstacle publisher — feeds obstacle positions to planner
         Node(
             package    = 'wa_birrt_star',
-            executable = 'static_only_pub',
+            executable = 'static_obstacle_pub',
             name       = 'static_only_publisher',
             output     = 'screen',
             parameters = [{'use_sim_time': True}]
@@ -91,14 +87,19 @@ def generate_launch_description():
             parameters = [{'use_sim_time': True}]
         ),
 
-        # 7. RViz with pre-configured layout
-        # Node(
-        #     package    = 'rviz2',
-        #     executable = 'rviz2',
-        #     name       = 'rviz2',
-        #     arguments  = ['-d', os.path.join(pkg_wa, 'rviz', 'planning.rviz')],
-        #     output     = 'screen',
-        #     parameters = [{'use_sim_time': True}]
-        # ),
+        #7. RViz with pre-configured layout
+        Node(
+            package    = 'rviz2',
+            executable = 'rviz2',
+            name       = 'rviz2',
+            arguments  = ['-d', os.path.join(pkg_wa, 'rviz', 'planning.rviz')],
+            output     = 'screen',
+            parameters = [{'use_sim_time': True}]
+        ),
+        Node(
+            package='wa_birrt_star', executable='viz_node',
+            name='viz_node', output='screen',
+            parameters=[{'use_sim_time': True}]
+        ),
 
     ])
