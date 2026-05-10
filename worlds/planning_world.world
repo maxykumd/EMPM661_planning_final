@@ -228,7 +228,7 @@
     <!-- Moving obs 1 — horizontal gap crosser -->
     <model name="moving_obs_1">
       <static>false</static>
-      <pose>1.5 2.0 0.15 0 0 0</pose>
+      <pose>1.5 2.5 0.15 0 0 0</pose>
       <link name="link">
         <inertial><mass>1.0</mass></inertial>
         <collision name="collision">

@@ -9,15 +9,16 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'algorithms'))
 
-from mock_data  import (MAP_SIZE, OBSTACLES, START, GOAL,
-                        STEP_SIZE, GOAL_BIAS, REWIRE_RADIUS)
-from rrt        import rrt
-from birrt      import birrt
-from birrt_star import birrt_star
+from mock_data     import (MAP_SIZE, OBSTACLES, START, GOAL,
+                            STEP_SIZE, GOAL_BIAS, REWIRE_RADIUS, CLEARANCE)
+from rrt           import rrt
+from birrt         import birrt
+from birrt_star    import birrt_star
+from wa_birrt_star import wa_birrt_star
 
-RUNS = 50
+RUNS = 100
 
-results  = []
+results = []
 
 def path_length(path):
     if path is None:
@@ -29,14 +30,17 @@ def path_length(path):
         total += np.sqrt(dx**2 + dy**2)
     return round(total, 3)
 
+# Bake CLEARANCE into radii for algorithms that use clearance=0.0 internally
+inflated_obs = [(x, y, r+CLEARANCE, vx, vy) for x,y,r,vx,vy in OBSTACLES]
+
 print("=" * 60)
 print(f"Running experiments — {RUNS} runs per algorithm")
 print(f"Start: {START}  Goal: {GOAL}")
-print(f"Obstacles: {len(OBSTACLES)}")
+print(f"Obstacles: {len(OBSTACLES)}  Clearance: {CLEARANCE}m")
 print("=" * 60)
 
 # ── 1. Vanilla RRT ────────────────────────────────────────────
-print(f"\n[1/3] Vanilla RRT...")
+print(f"\n[1/4] Vanilla RRT...")
 for run in range(RUNS):
     t0 = time.time()
     path, tree = rrt(
@@ -52,13 +56,13 @@ for run in range(RUNS):
     elapsed = round(time.time() - t0, 3)
     plen    = path_length(path)
     results.append({
-        'algorithm':    'RRT',
-        'run':          run + 1,
-        'success':      path is not None,
-        'time':         elapsed,
-        'path_length':  plen,
-        'waypoints':    len(path) if path else 0,
-        'nodes':        len(tree),
+        'algorithm':   'RRT',
+        'run':         run + 1,
+        'success':     path is not None,
+        'time':        elapsed,
+        'path_length': plen,
+        'waypoints':   len(path) if path else 0,
+        'nodes':       len(tree),
     })
     status = '✅' if path else '❌'
     print(f"  Run {run+1:2d}: {status} "
@@ -67,7 +71,7 @@ for run in range(RUNS):
           f"nodes={len(tree)}")
 
 # ── 2. Bi-RRT ─────────────────────────────────────────────────
-print(f"\n[2/3] Bi-RRT...")
+print(f"\n[2/4] Bi-RRT...")
 for run in range(RUNS):
     t0 = time.time()
     path, fw, rv = birrt(
@@ -83,13 +87,13 @@ for run in range(RUNS):
     elapsed = round(time.time() - t0, 3)
     plen    = path_length(path)
     results.append({
-        'algorithm':    'Bi-RRT',
-        'run':          run + 1,
-        'success':      path is not None,
-        'time':         elapsed,
-        'path_length':  plen,
-        'waypoints':    len(path) if path else 0,
-        'nodes':        len(fw) + len(rv),
+        'algorithm':   'Bi-RRT',
+        'run':         run + 1,
+        'success':     path is not None,
+        'time':        elapsed,
+        'path_length': plen,
+        'waypoints':   len(path) if path else 0,
+        'nodes':       len(fw) + len(rv),
     })
     status = '✅' if path else '❌'
     print(f"  Run {run+1:2d}: {status} "
@@ -98,13 +102,13 @@ for run in range(RUNS):
           f"nodes={len(fw)+len(rv)}")
 
 # ── 3. Bi-RRT* ────────────────────────────────────────────────
-print(f"\n[3/3] Bi-RRT*...")
+print(f"\n[3/4] Bi-RRT*...")
 for run in range(RUNS):
     t0 = time.time()
     path, fw, rv = birrt_star(
         start         = START,
         goal          = GOAL,
-        obstacles     = OBSTACLES,
+        obstacles     = inflated_obs,
         map_size      = MAP_SIZE,
         max_iter      = 5000,
         step_size     = STEP_SIZE,
@@ -116,13 +120,13 @@ for run in range(RUNS):
     elapsed = round(time.time() - t0, 3)
     plen    = path_length(path)
     results.append({
-        'algorithm':    'Bi-RRT*',
-        'run':          run + 1,
-        'success':      path is not None,
-        'time':         elapsed,
-        'path_length':  plen,
-        'waypoints':    len(path) if path else 0,
-        'nodes':        len(fw) + len(rv),
+        'algorithm':   'Bi-RRT*',
+        'run':         run + 1,
+        'success':     path is not None,
+        'time':        elapsed,
+        'path_length': plen,
+        'waypoints':   len(path) if path else 0,
+        'nodes':       len(fw) + len(rv),
     })
     status = '✅' if path else '❌'
     print(f"  Run {run+1:2d}: {status} "
@@ -130,7 +134,39 @@ for run in range(RUNS):
           f"length={plen}m  "
           f"nodes={len(fw)+len(rv)}")
 
-# ── Save To CSV ───────────────────────────────────────────────
+# ── 4. WA* + Bi-RRT* ─────────────────────────────────────────
+print(f"\n[4/4] WA* + Bi-RRT*...")
+for run in range(RUNS):
+    t0 = time.time()
+    path, fw, rv = wa_birrt_star(
+        start         = START,
+        goal          = GOAL,
+        obstacles     = inflated_obs,
+        map_size      = MAP_SIZE,
+        max_iter      = 5000,
+        step_size     = STEP_SIZE,
+        goal_bias     = GOAL_BIAS,
+        rewire_radius = REWIRE_RADIUS,
+        wa_epsilon    = 1.8
+    )
+    elapsed = round(time.time() - t0, 3)
+    plen    = path_length(path)
+    results.append({
+        'algorithm':   'WA*+Bi-RRT*',
+        'run':         run + 1,
+        'success':     path is not None,
+        'time':        elapsed,
+        'path_length': plen,
+        'waypoints':   len(path) if path else 0,
+        'nodes':       len(fw) + len(rv),
+    })
+    status = '✅' if path else '❌'
+    print(f"  Run {run+1:2d}: {status} "
+          f"time={elapsed:.3f}s  "
+          f"length={plen}m  "
+          f"nodes={len(fw)+len(rv)}")
+
+# ── Save to CSV ───────────────────────────────────────────────
 csv_path = os.path.join(os.path.dirname(__file__), 'results.csv')
 with open(csv_path, 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=[
@@ -140,19 +176,19 @@ with open(csv_path, 'w', newline='') as f:
     writer.writeheader()
     writer.writerows(results)
 
-print(f"\nResults saved to results.csv")
+print(f"\nResults saved to {csv_path}")
 
 # ── Print Summary ─────────────────────────────────────────────
 print("\n" + "=" * 60)
 print("SUMMARY")
 print("=" * 60)
-print(f"{'Algorithm':<12} {'Success':>8} {'Avg Time':>10} "
-      f"{'Avg Length':>12} {'Avg Waypoints':>15}")
+print(f"{'Algorithm':<14} {'Success':>8} {'Avg Time':>10} "
+      f"{'Avg Length':>12} {'Avg WPs':>9}")
 print("-" * 60)
 
-for algo in ['RRT', 'Bi-RRT', 'Bi-RRT*']:
+for algo in ['RRT', 'Bi-RRT', 'Bi-RRT*', 'WA*+Bi-RRT*']:
     runs    = [r for r in results if r['algorithm'] == algo]
-    success = [r for r in runs if r['success']]
+    success = [r for r in runs    if r['success']]
     rate    = len(success) / RUNS * 100
 
     if success:
@@ -160,12 +196,12 @@ for algo in ['RRT', 'Bi-RRT', 'Bi-RRT*']:
         avg_len  = np.mean([r['path_length'] for r in success])
         avg_wps  = np.mean([r['waypoints']   for r in success])
     else:
-        avg_time = avg_len = avg_wps = 0
+        avg_time = avg_len = avg_wps = 0.0
 
-    print(f"{algo:<12} {rate:>7.0f}%  "
+    print(f"{algo:<14} {rate:>7.0f}%  "
           f"{avg_time:>9.3f}s  "
           f"{avg_len:>11.2f}m  "
-          f"{avg_wps:>14.1f}")
+          f"{avg_wps:>8.1f}")
 
 print("=" * 60)
 print(f"\nFull results saved to: {csv_path}")

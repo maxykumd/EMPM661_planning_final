@@ -1,7 +1,17 @@
+"""
+birrt.py — Bidirectional RRT (Bi-RRT)
+  Grow TWO trees simultaneously — one from start, one from goal.
+  Every iteration we check if the two trees are close enough to connect.
+
+Two helper functions are also defined here and reused by Bi-RRT*:
+  try_connect_tree() — check if the two trees can be joined  |  merge_path()— stitch the two partial paths into one complete path
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mock_data import MAP_SIZE, CLEARANCE, STEP_SIZE, GOAL_BIAS, START, GOAL, OBSTACLES
 from rrt import (random_sample, get_nearest, steer,
@@ -9,20 +19,18 @@ from rrt import (random_sample, get_nearest, steer,
                  add_node, extract_path, animate_exploration)
 
 
+# ── Tree connection ────────────────────────────────────────────────────────────
+
 def try_connect_tree(fw_tree, rv_tree, sigma, obstacles, clearance=None):
     """
-    Check if any node in forward_tree is close enough to
-    any node in reverse_tree to connect them.
+    Check if any node in the forward tree is close enough to any node
+    in the reverse tree to bridge the gap between them.
 
-    BUG FIXED: was calling is_collision_free_path without clearance parameter.
-    When obstacles are pre-inflated (clearance=0.0), this function was adding
-    CLEARANCE on top again — rejecting valid connections and forcing worse paths
-    that clipped static obstacles.
-
-    clearance: pass 0.0 when obstacles are already inflated (from planner_node)
-               pass None (default) for standalone use with raw obstacles
+    sigma:     maximum allowed distance between the two nodes to connect
+    clearance: pass 0.0 when obstacles are already inflated (live planner)
+               pass None for standalone use with raw obstacles
     """
-    best_dist    = sigma
+    best_dist    = sigma      # only connect if closer than this
     best_fw_node = None
     best_rv_node = None
 
@@ -33,8 +41,7 @@ def try_connect_tree(fw_tree, rv_tree, sigma, obstacles, clearance=None):
             dist = np.sqrt(dx**2 + dy**2)
 
             if dist < best_dist:
-                # BUG FIX: pass clearance through so pre-inflated obstacles
-                # don't get double-counted
+                # Verify the straight line between them is actually clear
                 if is_collision_free_path(fw_node["pos"], rv_node["pos"],
                                           obstacles, clearance=clearance):
                     best_dist    = dist
@@ -45,82 +52,75 @@ def try_connect_tree(fw_tree, rv_tree, sigma, obstacles, clearance=None):
 
 
 def merge_path(forward_node, reverse_node):
-    """
-    Merge forward and reverse tree paths into one complete path.
-    Adds a bridge point between the two connection nodes.
-    """
-    forward_path = extract_path(forward_node)
-    reverse_path = extract_path(reverse_node)
-    reverse_path.reverse()
+    """ Stitch the two partial paths into one complete start→goal path. """
+    forward_path = extract_path(forward_node)   # start → forward_node
+    reverse_path = extract_path(reverse_node)   # goal  → reverse_node
+    reverse_path.reverse()                      # now:  reverse_node → goal
 
-    fx, fy = forward_node["pos"]
-    rx, ry = reverse_node["pos"]
+    # Bridge point between the two connection nodes
+    fx, fy   = forward_node["pos"]
+    rx, ry   = reverse_node["pos"]
     midpoint = ((fx + rx) / 2, (fy + ry) / 2)
 
-    full_path = forward_path + [midpoint] + reverse_path
-    return full_path
+    return forward_path + [midpoint] + reverse_path
 
+
+# ── Main Bi-RRT algorithm ──────────────────────────────────────────────────────
 
 def birrt(start, goal, obstacles, map_size,
           max_iter=5000,
           step_size=0.15,
           sigma=0.5,
           goal_bias=0.10):
-    """
-    Bidirectional RRT — grows two trees simultaneously
-    from start and goal until they connect.
-    Standalone version uses default clearance (raw obstacles).
-    """
+    """ Grow two trees simultaneously — one from start, one from goal. Stop when close enough to connect. """
+    # Initialize both trees with their root nodes
     f_root  = {"pos": start, "parent": None, "cost": 0.0}
     r_root  = {"pos": goal,  "parent": None, "cost": 0.0}
     fw_tree = [f_root]
     rv_tree = [r_root]
 
-    for i in range(max_iter):
+    for iteration in range(max_iter):
 
-        # Grow Forward Tree
-        if np.random.random() < goal_bias:
-            fw_sample = goal
-        else:
-            fw_sample = random_sample(map_size)
+        # ── Extend forward tree (start → goal direction) ───────────────────
+        fw_sample  = goal if np.random.random() < goal_bias else random_sample(map_size)
         fw_nearest = get_nearest(fw_tree, fw_sample)
         fw_new_pos = steer(fw_nearest["pos"], fw_sample, step_size)
+
         if is_collision(fw_new_pos, obstacles):
             continue
         if not is_collision_free_path(fw_nearest["pos"], fw_new_pos, obstacles):
             continue
         add_node(fw_tree, fw_new_pos, fw_nearest)
 
-        # Grow Reverse Tree
-        if np.random.random() < goal_bias:
-            rv_sample = start
-        else:
-            rv_sample = random_sample(map_size)
+        # ── Extend reverse tree (goal → start direction) ───────────────────
+        rv_sample  = start if np.random.random() < goal_bias else random_sample(map_size)
         rv_nearest = get_nearest(rv_tree, rv_sample)
         rv_new_pos = steer(rv_nearest["pos"], rv_sample, step_size)
+
         if is_collision(rv_new_pos, obstacles):
             continue
         if not is_collision_free_path(rv_nearest["pos"], rv_new_pos, obstacles):
             continue
         add_node(rv_tree, rv_new_pos, rv_nearest)
 
-        # Check connection — standalone uses default clearance
+        # ── Try to connect the two trees ───────────────────────────────────
         f_node, r_node = try_connect_tree(fw_tree, rv_tree, sigma, obstacles)
 
         if f_node is not None:
             path = merge_path(f_node, r_node)
-            print(f"Path found in {i+1} iterations")
+            print(f"Path found in {iteration + 1} iterations")
             print(f"Forward tree: {len(fw_tree)} nodes")
             print(f"Reverse tree: {len(rv_tree)} nodes")
-            print(f"Path length:  {len(path)} waypoints")
+            print(f"Waypoints:    {len(path)}")
             return path, fw_tree, rv_tree
 
     print(f"No path found after {max_iter} iterations")
     return None, fw_tree, rv_tree
 
 
-if __name__ == "__main__":
+# ── Standalone test ────────────────────────────────────────────────────────────
 
+if __name__ == "__main__":
     print("=" * 50)
     print("Running Bidirectional RRT...")
     print(f"Start:     {START}")
@@ -157,6 +157,5 @@ if __name__ == "__main__":
         path         = path,
         reverse_tree = rv_tree,
         interval     = 10,
-        title        = "Bidirectional RRT Exploration\n"
-                       "Blue=forward  Green=reverse  Red=path"
+        title        = "Bidirectional RRT\nBlue=forward  Green=reverse  Red=path"
     )

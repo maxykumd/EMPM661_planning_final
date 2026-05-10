@@ -5,7 +5,7 @@ from rclpy.node import Node
 import sys
 import os
 import math
-
+import importlib.util
 from geometry_msgs.msg      import PoseStamped, Point
 from nav_msgs.msg           import Path, Odometry
 from std_msgs.msg           import Float32MultiArray, Bool
@@ -16,7 +16,6 @@ _this_dir = os.path.dirname(os.path.abspath(__file__))
 _algo_dir = os.path.join(_this_dir, 'algorithms')
 sys.path.insert(0, _algo_dir)
 
-import importlib.util
 
 def _load_algo(name, filename):
     spec = importlib.util.spec_from_file_location(
@@ -50,16 +49,14 @@ class PlannerNode(Node):
         self.active_planning   = False
         self.last_replan_time  = 0.0
         self.blocked_counter   = 0
-        self.blocked_threshold = 3
+        self.blocked_threshold = 3 # num reading blocked before replan trigger
         self._replan_count     = 0
 
         self.create_subscription(PoseStamped,       '/goal_pose',          self.goal_callback,     10)
         self.create_subscription(Odometry,          '/odom',               self.odom_callback,     10)
         self.create_subscription(Float32MultiArray, '/obstacle_positions',  self.obstacle_callback, 10)
 
-        qos = QoSProfile(depth=1,
-                         durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                         reliability=ReliabilityPolicy.RELIABLE)
+        qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE)
         self.path_pub     = self.create_publisher(Path,        '/planned_path',       qos)
         self.path_viz_pub = self.create_publisher(Marker,      '/path_visualization', qos)
         self.marker_pub   = self.create_publisher(MarkerArray, '/planning_markers',   10)
@@ -74,47 +71,60 @@ class PlannerNode(Node):
         msg = Bool(); msg.data = stop
         self.stop_pub.publish(msg)
 
-    def _planning_obstacles(self):
+    def _inflate_obstacles(self):
         """
-        Inflate obstacles for planning — ALL margin baked in here.
-        Bi-RRT* uses clearance=0.0 internally.
-          static:  r + CLEARANCE
-          moving:  r + CLEARANCE + speed*1.5 + center shifted 0.8s forward
+        Prepare obstacles for Bi-RRT* planning.
+        Static obstacles: r + CLEARANCE
+        Moving obstacles: r + CLEARANCE + 0.10 extra buffer
         """
-        return [
-            (x + vx*0.8, y + vy*0.8,
-             r + CLEARANCE + math.hypot(vx, vy)*1.5,
-             vx, vy)
-            for x, y, r, vx, vy in self.obstacles
-        ]
+        result = []
+        for x, y, r, vx, vy in self.obstacles:
+            speed = math.hypot(vx, vy)
+            if speed > 0.01:
+                # Moving: slightly larger bubble, no center shift
+                inflated_r = r + CLEARANCE + 0.10
+            else:
+                # Static: just clearance
+                inflated_r = r + CLEARANCE
+            result.append((x, y, inflated_r, vx, vy))
+        return result
 
     def _is_time_collision_free(self, p1, p2, t0, robot_speed=0.20):
         """
-        Time-aware segment collision check against RAW obstacles.
-        Adds CLEARANCE here since raw obstacle radii are unmodified.
-        Uses uncertainty growth for moving obstacles to account for
-        prediction error increasing over time.
-
-        Checks where each obstacle WILL BE when the robot arrives at
-        each point along the segment — not where it is right now.
+        Checks where each obstacle WILL BE when robot reaches each point.
+        Only moving obstacles get uncertainty growth.
         """
-        dist = math.dist(p1, p2)
+        dist = math.dist(p1, p2) # dist from wp1 to wp2
         if dist < 1e-6:
             return True
-        steps = max(10, int(dist / 0.05))   # 5cm resolution
+        steps = max(10, int(dist / 0.05)) # check every 5cm
 
         for i in range(steps + 1):
             alpha = i / steps
             x = p1[0] + alpha*(p2[0]-p1[0])
             y = p1[1] + alpha*(p2[1]-p1[1])
-            t = t0 + alpha*dist/robot_speed
+            t = t0 + alpha*dist/robot_speed # time for robot to reach this point
 
             for ox, oy, r, vx, vy in self.obstacles:
                 px = ox + vx*t
                 py = oy + vy*t
-                # uncertainty grows with time for moving obstacles only
                 speed = math.hypot(vx, vy)
-                uncertainty = 0.07*t if speed > 0.01 else 0.0
+                
+                if speed > 0.01: # moving obstacle
+                    # Small bounded uncertainty - faster = more boundary add
+                    uncertainty = min(0.08, speed * 0.5)
+
+                    # Predict only a SHORT second
+                    predict_t = min(t, 1.0)
+
+                    px = ox + vx * predict_t
+                    py = oy + vy * predict_t
+                else:
+                    uncertainty = 0.0
+                    px = ox
+                    py = oy
+
+                # path block if obstacle to close to robot
                 effective_r = r + CLEARANCE + uncertainty
                 if math.hypot(x-px, y-py) < effective_r:
                     return False
@@ -127,7 +137,6 @@ class PlannerNode(Node):
         self.current_pos = (p.x, p.y)
 
     def obstacle_callback(self, msg):
-        """Read positions and velocities directly from publisher."""
         data = msg.data
         obs  = []
         for i in range(0, len(data), 5):
@@ -143,7 +152,7 @@ class PlannerNode(Node):
         if self.current_pos is None:
             self.current_pos = (0.3, 5.5)
 
-        # Wait up to 2s for obstacle data before planning
+        # Wait up to 2s for obstacle data
         if not self.obstacles:
             self.get_logger().warn('Waiting for obstacle data...')
             import time
@@ -173,7 +182,7 @@ class PlannerNode(Node):
         path, fw_tree, rv_tree = wa_birrt_star(
             start         = self.current_pos,
             goal          = self.current_goal,
-            obstacles     = self._planning_obstacles(),
+            obstacles     = self._inflate_obstacles(),
             map_size      = MAP_SIZE,
             max_iter      = 8000,
             step_size     = STEP_SIZE,
@@ -203,42 +212,41 @@ class PlannerNode(Node):
         self._stop(False)
 
     def check_path_validity(self):
+        """ Dynamic obstacle avoidance algorithm, check path safe and trigger replan"""
         if not self.current_path or not self.active_planning or not self.current_pos:
             return
         if not self.obstacles:
             return
 
         now = self.get_clock().now().nanoseconds / 1e9
-        if now - self.last_replan_time < 0.5:
+        if now - self.last_replan_time < 0.2:
             return
-
+        
+        # find index of waypoint closest to robot
         closest = min(range(len(self.current_path)),
                       key=lambda i: math.dist(self.current_pos, self.current_path[i]))
 
         path_blocked = False
-        TIME_HORIZON = 4.0
+        TIME_HORIZON = 1.5 # how far ahead we look in time
         t_elapsed    = 0.0
 
+        # walk forward along the path
         for i in range(closest, len(self.current_path)-1):
             seg_len = math.dist(self.current_path[i], self.current_path[i+1])
             if t_elapsed > TIME_HORIZON:
                 break
-            # Uses raw obstacles + adds CLEARANCE inside the function
-            if not self._is_time_collision_free(
-                self.current_path[i], self.current_path[i+1], t_elapsed
-            ):
-                self.get_logger().warn(
-                    f'Segment {i} blocked at t={t_elapsed:.1f}s — replan needed'
-                )
+
+            if not self._is_time_collision_free(self.current_path[i], self.current_path[i+1], t_elapsed):
+                self.get_logger().warn(f'Segment {i} blocked at t={t_elapsed:.1f}s')
                 path_blocked = True
                 break
             t_elapsed += seg_len / 0.20
 
+        # replan only if 3 consecutive blocked reading 
         if path_blocked:
             self.blocked_counter += 1
-            self.get_logger().info(
-                f'Blocked count: {self.blocked_counter}/{self.blocked_threshold}'
-            )
+            self.get_logger().info(f'Blocked count: {self.blocked_counter}/{self.blocked_threshold}')
+
             if self.blocked_counter >= self.blocked_threshold:
                 self.blocked_counter  = 0
                 self.last_replan_time = now

@@ -22,7 +22,7 @@ class VizNode(Node):
         self.map_pub  = self.create_publisher(OccupancyGrid, '/planning_map',     10)
 
         # Publish map once per second — obstacles may move
-        self.create_timer(1.0, self.publish_map)
+        self.create_timer(0.1, self.publish_map)
 
         self.get_logger().info('Viz node started')
 
@@ -129,25 +129,40 @@ class VizNode(Node):
             arr.markers.append(m)
 
             # Velocity arrow for moving obstacles
+            # Predicted future position (ghost)
             if is_moving:
-                speed = math.hypot(vx, vy)
-                if speed > 0.01:
-                    a = Marker()
-                    a.header.frame_id = 'odom'
-                    a.header.stamp    = self.get_clock().now().to_msg()
-                    a.ns = 'velocity'; a.id = i // 5
-                    a.type = Marker.ARROW; a.action = Marker.ADD
-                    a.pose.position.x    = float(x)
-                    a.pose.position.y    = float(y)
-                    a.pose.position.z    = 0.35
-                    yaw = math.atan2(vy, vx)
-                    a.pose.orientation.z = math.sin(yaw/2)
-                    a.pose.orientation.w = math.cos(yaw/2)
-                    a.scale.x = float(speed * 2.0)
-                    a.scale.y = 0.06; a.scale.z = 0.06
-                    a.color.r = 0.0; a.color.g = 1.0
-                    a.color.b = 1.0; a.color.a = 1.0
-                    arr.markers.append(a)
+                predict_t = 1.0
+
+                future_x = x + vx * predict_t
+                future_y = y + vy * predict_t
+
+                g = Marker()
+                g.header.frame_id = 'odom'
+                g.header.stamp = self.get_clock().now().to_msg()
+
+                g.ns = 'predicted'
+                g.id = 100 + i // 5
+
+                g.type = Marker.CYLINDER
+                g.action = Marker.ADD
+
+                g.pose.position.x = float(future_x)
+                g.pose.position.y = float(future_y)
+                g.pose.position.z = 0.10
+
+                g.pose.orientation.w = 1.0
+
+                g.scale.x = float((r + 0.08) * 2)
+                g.scale.y = float((r + 0.08) * 2)
+                g.scale.z = 0.05
+
+                # Transparent cyan ghost
+                g.color.r = 0.0
+                g.color.g = 1.0
+                g.color.b = 1.0
+                g.color.a = 0.25
+
+                arr.markers.append(g)
 
         self.obstacles = obs
         self.obs_pub.publish(arr)

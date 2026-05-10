@@ -1,5 +1,5 @@
 MAP_SIZE      = (6.0, 6.0)
-CELL_SIZE     = 0.1
+CELL_SIZE     = 0.10
 STEP_SIZE     = 0.15
 GOAL_BIAS     = 0.10
 REWIRE_RADIUS = 0.60
@@ -23,7 +23,8 @@ OBSTACLES = [
 ]
 
 MOVING_OBSTACLES = [
-    (1.5, 2.0, 0.20,  0.25,  0.00),
-    (1.5, 3.5, 0.20,  0.00,  0.20),
-    (4.5, 2.5, 0.20,  0.15, -0.15),
+    [1.5, 2.0, 0.20, 0.0, 0.0, 'moving_obs_1'], #mid
+    [1.5, 3.5, 0.20, 0.0, 0.0, 'moving_obs_2'],#top
+    [4.5, 2.5, 0.20, 0.0, 0.0, 'moving_obs_3'],
 ]
+
